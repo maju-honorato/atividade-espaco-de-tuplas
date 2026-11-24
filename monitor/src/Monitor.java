@@ -2,6 +2,8 @@ import net.jini.core.lookup.ServiceRegistrar;
 import net.jini.core.lookup.ServiceTemplate;
 import net.jini.core.discovery.LookupLocator;
 import net.jini.space.JavaSpace;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Observa o espaço de tuplas a cada 3 segundos e exibe quantas tarefas pendentes existem.
@@ -36,28 +38,20 @@ public class Monitor {
         TaskEntry template = new TaskEntry(null, null, null);
         int count = 0;
 
-        // TODO: use read() ou take() aqui — qual você deve usar e por quê?
-        //
-        // Dica: o espaço de tuplas não tem operação count().
-        // Você precisa ler as entradas uma a uma para contá-las.
-        // Pense: se você usar take(), o que acontece com as tarefas?
-        //
-        // Substitua o null abaixo pela chamada correta:
-        //
-        //   TaskEntry encontrada = (TaskEntry) space.???(template, null, 0);
-        //
-        // Use timeout = 0 (JavaSpace.NO_WAIT) para não bloquear quando não houver mais entradas.
-        //
-        // Atenção: read() com timeout=0 pode retornar a mesma entrada mais de uma vez —
-        // o Outrigger não garante ordem nem variedade entre chamadas sucessivas.
-        // Para contar corretamente, você precisaria de um campo id único por tarefa
-        // e rastrear quais ids já foram vistos. Esse problema não tem solução limpa
-        // com a API pura do espaço de tuplas — é justamente a limitação que o Nível 2B explora.
+        Set<Integer> idsVistos = new HashSet<>();
+        int tentativas = 0;
 
-        TaskEntry encontrada = null; // ← substitua esta linha
-
-        if (encontrada != null) {
-            count = 1; // ← implemente a contagem real acima e remova esta linha
+        while (tentativas < 20) {
+            TaskEntry encontrada = (TaskEntry) space.read(template, null, 0);
+            if (encontrada == null) {
+                break; 
+            }
+            if (idsVistos.add(encontrada.id)) {
+                count++;
+                tentativas = 0;
+            } else {
+                tentativas++;
+            }
         }
 
         return count;
